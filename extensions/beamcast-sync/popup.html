@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 280px;
+      padding: 16px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      color: #1a1a1a;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .header .logo {
+      width: 24px;
+      height: 24px;
+      background: #0078d4;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .status.connected { background: #e8f5e9; color: #2e7d32; }
+    .status.streaming { background: #e3f2fd; color: #1565c0; }
+    .status.disconnected { background: #ffebee; color: #c62828; }
+    .status .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 12px;
+      padding: 8px 0;
+    }
+    .metrics .label { color: #666; }
+    .metrics .value { font-family: 'Cascadia Code', monospace; text-align: right; }
+    .footer {
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">B</div>
+    <h1>BeamCast Sync</h1>
+  </div>
+
+  <div id="status" class="status disconnected">
+    <div class="dot"></div>
+    <span id="statusText">Disconnected</span>
+  </div>
+
+  <div class="metrics">
+    <span class="label">Total latency</span>
+    <span class="value" id="totalLatency">—</span>
+    <span class="label">Network</span>
+    <span class="value" id="networkLatency">—</span>
+    <span class="label">Audio buffer</span>
+    <span class="value" id="audioLatency">—</span>
+    <span class="label">WASAPI buffer</span>
+    <span class="value" id="wasapiBuffer">—</span>
+    <span class="label">Mode</span>
+    <span class="value" id="mode">—</span>
+  </div>
+
+  <div class="footer">BeamCast v0.1 · localhost:46382</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

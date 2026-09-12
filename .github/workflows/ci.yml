@@ -1,0 +1,89 @@
+name: CI
+
+# Storage: GitHub Pro ma ~2 GB na artefakty (konto). Self-contained WinUI
+# publish waży ~80–90 MB; przy retencji 90 dni i każdym pushu na main
+# zjadaliśmy ~1.3 GB. Domyślny CI tylko buduje/testuje — bez uploadu binarki.
+# Publish + artifact tylko ręcznie (workflow_dispatch + publish_win).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      publish_win:
+        description: "Publish self-contained Win x64 artifact (retention 3 days)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-core:
+    name: Build & Test (Core, Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore src/AirNext.Core.Tests/AirNext.Core.Tests.csproj
+
+      - name: Build
+        run: dotnet build src/AirNext.Core.Tests/AirNext.Core.Tests.csproj --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test src/AirNext.Core.Tests/AirNext.Core.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/*.trx"
+          if-no-files-found: ignore
+          retention-days: 3
+
+  build-app-windows:
+    name: Build (App, Windows x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore src/AirNext.App/AirNext.App.csproj -r win-x64 && dotnet restore src/AirNext.Audio/AirNext.Audio.csproj
+
+      - name: Build
+        run: dotnet build src/AirNext.App/AirNext.App.csproj --configuration Release --no-restore -r win-x64
+
+      - name: Build Audio (WASAPI)
+        run: dotnet build src/AirNext.Audio/AirNext.Audio.csproj --configuration Release --no-restore
+
+      - name: Publish (self-contained)
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_win
+        run: dotnet publish src/AirNext.App/AirNext.App.csproj -c Release -r win-x64 --self-contained true -o artifacts/win-x64
+
+      - name: Upload artifact
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_win
+        uses: actions/upload-artifact@v4
+        with:
+          name: AirNext-win-x64
+          path: artifacts/win-x64
+          retention-days: 3

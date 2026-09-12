@@ -1,0 +1,44 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+*.pdb
+*.msi
+*.msp
+*.nupkg
+*.snupkg
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local settings
+appsettings.local.json
+*.pcapng
+*.pcap
+
+# Agent / local-only (must not be in git even if previously tracked)
+.commandcode/
+TuneBlade/
+wireshark/

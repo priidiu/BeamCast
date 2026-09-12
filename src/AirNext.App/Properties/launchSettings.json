@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "AirNext.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "AirNext.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

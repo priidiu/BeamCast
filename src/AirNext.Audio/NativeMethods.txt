@@ -1,0 +1,37 @@
+// CsWin32: lista API do wygenerowania — WASAPI loopback (docs/06 §1–3) + MMCSS.
+
+// COM / MMDevice
+CoCreateInstance
+IMMDeviceEnumerator
+IMMDevice
+IMMDeviceCollection
+IMMNotificationClient
+EDataFlow
+ERole
+DEVICE_STATE
+CLSCTX
+
+// AudioClient / Capture
+IAudioClient
+IAudioCaptureClient
+IAudioRenderClient
+IAudioClock
+AUDCLNT_SHAREMODE
+AUDCLNT_STREAMFLAGS_LOOPBACK
+AUDCLNT_STREAMFLAGS_EVENTCALLBACK
+AUDCLNT_STREAMFLAGS_NOPERSIST
+_AUDCLNT_BUFFERFLAGS
+WAVEFORMATEX
+WAVEFORMATEXTENSIBLE
+
+// MMCSS (avrt.h)
+AvSetMmThreadCharacteristics
+AvRevertMmThreadCharacteristics
+
+// Kernel (event handle)
+CreateEventW
+WaitForSingleObject
+CloseHandle
+QueryPerformanceCounter
+QueryPerformanceFrequency
+WAIT_EVENT

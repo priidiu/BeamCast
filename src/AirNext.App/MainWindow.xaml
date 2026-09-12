@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="AirNext_App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:AirNext_App"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="BeamCast"
+    mc:Ignorable="d">
+
+    <!-- Fluent Design Windows 11: Mica backdrop + auto-motyw (RequestedTheme=Default w App.xaml) -->
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid Padding="20" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />  <!-- logo -->
+            <RowDefinition Height="*" />     <!-- devices (scrolls; chrome stays visible) -->
+            <RowDefinition Height="Auto" />  <!-- controls -->
+            <RowDefinition Height="Auto" />  <!-- realtime toggle -->
+            <RowDefinition Height="Auto" />  <!-- status -->
+            <RowDefinition Height="Auto" />  <!-- advanced -->
+        </Grid.RowDefinitions>
+
+        <!-- Logo / header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <Border Width="36" Height="36" CornerRadius="8" Background="{ThemeResource AccentFillColorDefaultBrush}">
+                <FontIcon Glyph="&#xE8B9;" FontSize="18" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+            </Border>
+            <StackPanel Spacing="0">
+                <TextBlock Text="BeamCast" FontSize="18" FontWeight="SemiBold" />
+                <TextBlock Text="v0.1 · by Rhizako" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Device list (RHI-169): * row so Start/Stop/Advanced never get clipped -->
+        <Grid Grid.Row="1" RowSpacing="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Devices" Style="{ThemeResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <ListView x:Name="DevicesList" Grid.Row="1" SelectionMode="Single"
+                      VerticalAlignment="Stretch"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollMode="Enabled">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="4" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid ColumnSpacing="10" Padding="8" MinHeight="44">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6"
+                                    Background="{ThemeResource ControlFillColorDefaultBrush}">
+                                <FontIcon Glyph="&#xE8D6;" FontSize="14" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="0">
+                                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Medium" />
+                                <TextBlock Text="{Binding Ip}" FontSize="11"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <Border Grid.Column="2" CornerRadius="10" Padding="8,2" VerticalAlignment="Center"
+                                    Background="{Binding StatusBrush}">
+                                <TextBlock Text="{Binding StatusText}" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{Binding StatusForeground}" />
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <TextBlock x:Name="SearchStatusText" Grid.Row="2" Text="Searching for devices..." FontSize="12"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="4,0,0,0" />
+        </Grid>
+
+        <!-- Controls (RHI-170): pause + start/stop + volume -->
+        <Grid Grid.Row="2" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Width="44" Height="44" CornerRadius="22"
+                    Click="PauseButton_Click">
+                <FontIcon Glyph="&#xE769;" FontSize="16" />
+            </Button>
+            <Button Grid.Column="1" x:Name="StartStopButton" Height="44" CornerRadius="6"
+                    Style="{StaticResource AccentButtonStyle}" Click="StartStopButton_Click">
+                <TextBlock x:Name="StartStopText" Text="Start" />
+            </Button>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE767;" FontSize="14"
+                          Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Width="100"
+                        ValueChanged="VolumeSlider_ValueChanged" />
+                <TextBlock x:Name="VolumeText" Text="62" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- RealTime (RHI-172): toggle + configurable delay for extension A/V sync -->
+        <StackPanel Grid.Row="3" Spacing="4">
+            <ToggleSwitch x:Name="RealTimeToggle"
+                          Header="RealTime (low-latency A/V)"
+                          IsOn="False" Toggled="RealTimeToggle_Toggled"
+                          FontSize="11" MinHeight="32" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Delay" VerticalAlignment="Center" FontSize="11"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Slider x:Name="DelaySlider" Grid.Column="1" Minimum="20" Maximum="250"
+                        IsEnabled="False" ValueChanged="DelaySlider_ValueChanged" />
+                <TextBlock x:Name="DelayText" Grid.Column="2" Text="40 ms" FontSize="11" Width="52"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Grid>
+        </StackPanel>
+
+        <!-- Connection status (RHI-170) -->
+        <StackPanel Grid.Row="4" Spacing="4">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="PlayingText" Text="Not connected" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <Ellipse x:Name="StatusDot" Width="8" Height="8"
+                             Fill="{ThemeResource SystemFillColorCriticalBrush}" />
+                    <TextBlock x:Name="ConnectionState" Text="Disconnected" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                </StackPanel>
+            </Grid>
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="MetricsText" Text="Latency — · 0 pkt/s · 0 glitches" FontSize="11"
+                           TextTrimming="CharacterEllipsis" MaxLines="1"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock x:Name="MuteText" Grid.Column="1" Text="" FontSize="11"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Grid>
+        </StackPanel>
+
+        <!-- Advanced (RHI-171) -->
+        <Button Grid.Row="5" HorizontalAlignment="Center" Background="Transparent"
+                BorderThickness="0" Click="AdvancedButton_Click">
+            <TextBlock Text="Advanced ›" FontSize="12"
+                       Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+        </Button>
+    </Grid>
+</Window>

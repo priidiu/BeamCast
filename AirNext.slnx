@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AirNext.App/AirNext.App.csproj" />
+    <Project Path="src/AirNext.Audio/AirNext.Audio.csproj" />
+    <Project Path="src/AirNext.CaptureProbe/AirNext.CaptureProbe.csproj" />
+    <Project Path="src/AirNext.Core.Tests/AirNext.Core.Tests.csproj" />
+    <Project Path="src/AirNext.Core/AirNext.Core.csproj" />
+    <Project Path="src/AirNext.StreamProbe/AirNext.StreamProbe.csproj" />
+  </Folder>
+</Solution>
