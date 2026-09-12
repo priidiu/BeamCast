@@ -44,3 +44,11 @@ chrome.runtime.onMessage.addListener((msg) => {
     update(msg.metrics);
   }
 });
+
+const cornerEl = document.getElementById("showCornerHud");
+chrome.storage.local.get({ showCornerHud: true }, (s) => {
+  cornerEl.checked = s.showCornerHud !== false;
+});
+cornerEl.addEventListener("change", () => {
+  chrome.storage.local.set({ showCornerHud: cornerEl.checked });
+});

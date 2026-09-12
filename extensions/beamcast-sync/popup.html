@@ -64,6 +64,16 @@
       text-align: center;
       margin-top: 8px;
     }
+    .opt {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0 4px;
+      border-top: 1px solid #eee;
+      margin-top: 4px;
+      font-size: 12px;
+    }
+    .opt input { margin: 0; }
   </style>
 </head>
 <body>
@@ -89,6 +99,11 @@
     <span class="label">Mode</span>
     <span class="value" id="mode">—</span>
   </div>
+
+  <label class="opt">
+    <input type="checkbox" id="showCornerHud" checked>
+    Show status in the bottom-right corner
+  </label>
 
   <div class="footer">BeamCast v0.1 · localhost:46382</div>
 

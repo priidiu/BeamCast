@@ -12,6 +12,7 @@
   let delayMs = 0;
   let streaming = false;
   let overlay = null;
+  let showCornerHud = true;
 
   class Slot {
     constructor(video) {
@@ -260,12 +261,18 @@
     if (!overlay) return;
     const bar = document.querySelector(".ytp-right-controls");
     if (bar) {
+      overlay.style.display = "";
       applyStyle(overlay, ytpChipStyle);
       if (overlay.parentElement !== bar || overlay !== bar.firstElementChild) {
         bar.insertBefore(overlay, bar.firstChild);
       }
       return;
     }
+    if (!showCornerHud) {
+      overlay.style.display = "none";
+      return;
+    }
+    overlay.style.display = "block";
     applyStyle(overlay, cornerStyle);
     if (overlay.parentElement !== document.documentElement && overlay.parentElement !== document.body) {
       (document.body || document.documentElement).appendChild(overlay);
@@ -308,6 +315,16 @@
       }
     });
   }
+
+  chrome.storage.local.get({ showCornerHud: true }, (s) => {
+    showCornerHud = s.showCornerHud !== false;
+    placeHud();
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes.showCornerHud) return;
+    showCornerHud = changes.showCornerHud.newValue !== false;
+    placeHud();
+  });
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.type === "beamcast-metrics") apply(msg.metrics);
