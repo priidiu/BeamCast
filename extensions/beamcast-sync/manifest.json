@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BeamCast Sync",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Delays video frames to match BeamCast AirPlay latency (audio stays live).",
   "permissions": ["alarms", "tabs", "storage"],
   "host_permissions": ["http://localhost:46382/*"],

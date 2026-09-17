@@ -10,7 +10,7 @@
   const attached = new WeakMap();
 
   let delayMs = 0;
-  let streaming = false;
+  let delayActive = false;
   let overlay = null;
   let showCornerHud = true;
   const DEFAULT_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com"];
@@ -267,33 +267,43 @@
   }
 
   function hud(text) {
-    if (!overlay || !overlay.isConnected) {
-      overlay = document.createElement("div");
-      overlay.id = "beamcast-ytp-chip";
+    try {
+      if (!document.documentElement) return;
+      if (!overlay || !overlay.isConnected) {
+        overlay = document.createElement("div");
+        overlay.id = "beamcast-ytp-chip";
+      }
+      placeHud();
+      if (overlay && overlay.textContent !== text) overlay.textContent = text;
+    } catch {
+      /* closed iframe / YouTube rebuilds the player */
     }
-    placeHud();
-    if (overlay.textContent !== text) overlay.textContent = text;
   }
 
   function placeHud() {
     if (!overlay) return;
-    const bar = document.querySelector(".ytp-right-controls");
-    if (bar) {
-      overlay.style.display = "";
-      applyStyle(overlay, ytpChipStyle);
-      if (overlay.parentElement !== bar || overlay !== bar.firstElementChild) {
-        bar.insertBefore(overlay, bar.firstChild);
+    try {
+      const bar = document.querySelector(".ytp-right-controls");
+      if (bar) {
+        overlay.style.display = "";
+        applyStyle(overlay, ytpChipStyle);
+        if (overlay.parentElement !== bar || overlay !== bar.firstElementChild) {
+          bar.insertBefore(overlay, bar.firstChild);
+        }
+        return;
       }
-      return;
-    }
-    if (!showCornerHud) {
-      overlay.style.display = "none";
-      return;
-    }
-    overlay.style.display = "block";
-    applyStyle(overlay, cornerStyle);
-    if (overlay.parentElement !== document.documentElement && overlay.parentElement !== document.body) {
-      (document.body || document.documentElement).appendChild(overlay);
+      if (!showCornerHud) {
+        overlay.style.display = "none";
+        return;
+      }
+      overlay.style.display = "block";
+      applyStyle(overlay, cornerStyle);
+      const root = document.body || document.documentElement;
+      if (root && overlay.parentElement !== root) {
+        root.appendChild(overlay);
+      }
+    } catch {
+      /* ignore */
     }
   }
 
@@ -312,46 +322,55 @@
   }
 
   function disableOnThisSite() {
-    streaming = false;
+    delayActive = false;
     delayMs = 0;
-    document.querySelectorAll("video").forEach((v) => {
-      const p = attached.get(v);
-      if (p) p.stop();
-    });
-    if (overlay) {
-      overlay.style.display = "none";
-      overlay.remove();
+    try {
+      document.querySelectorAll("video").forEach((v) => {
+        const p = attached.get(v);
+        if (p) p.stop();
+      });
+    } catch { /* ignore */ }
+    try {
+      if (overlay) {
+        overlay.remove();
+        overlay = null;
+      }
+    } catch {
       overlay = null;
     }
   }
 
   function apply(m) {
-    if (!hostAllowed()) {
-      disableOnThisSite();
-      return;
+    try {
+      if (!hostAllowed()) {
+        disableOnThisSite();
+        return;
+      }
+      if (!m || !m.isStreaming) {
+        delayActive = false;
+        delayMs = 0;
+        hud("BC idle");
+        document.querySelectorAll("video").forEach((v) => {
+          const p = attached.get(v);
+          if (p) p.stop();
+        });
+        return;
+      }
+      delayActive = true;
+      delayMs = Math.max(0, Number(m.delayMs != null ? m.delayMs : m.totalLatencyMs) || 0);
+      const mode = m.realTimeMode ? "RT" : "Normal";
+      const drm = [...document.querySelectorAll("video")].some(isDrm);
+      hud(drm
+        ? `BC ${mode} +${Math.round(delayMs)}ms · DRM`
+        : `BC ${mode} +${Math.round(delayMs)}ms`);
+      scan();
+    } catch {
+      /* Brave/YouTube: player iframe may throw on DOM writes */
     }
-    if (!m || !m.isStreaming) {
-      streaming = false;
-      delayMs = 0;
-      hud("BC idle");
-      document.querySelectorAll("video").forEach((v) => {
-        const p = attached.get(v);
-        if (p) p.stop();
-      });
-      return;
-    }
-    streaming = true;
-    delayMs = Math.max(0, Number(m.delayMs != null ? m.delayMs : m.totalLatencyMs) || 0);
-    const mode = m.realTimeMode ? "RT" : "Normal";
-    const drm = [...document.querySelectorAll("video")].some(isDrm);
-    hud(drm
-      ? `BC ${mode} +${Math.round(delayMs)}ms · DRM`
-      : `BC ${mode} +${Math.round(delayMs)}ms`);
-    scan();
   }
 
   function scan() {
-    if (!streaming || delayMs < 15) return;
+    if (!delayActive || delayMs < 15) return;
     document.querySelectorAll("video").forEach((v) => {
       if (isDrm(v)) return;
       if (v.offsetWidth < MIN_VIDEO_PX || v.offsetHeight < MIN_VIDEO_PX) return;
@@ -395,7 +414,7 @@
       if (chrome.runtime.lastError) return;
       apply(res && res.metrics);
     });
-    if (streaming) {
+    if (delayActive) {
       scan();
       placeHud();
     }
