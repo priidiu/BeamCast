@@ -13,6 +13,8 @@
   let streaming = false;
   let overlay = null;
   let showCornerHud = true;
+  const DEFAULT_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com"];
+  let allowedHosts = DEFAULT_HOSTS.slice();
 
   class Slot {
     constructor(video) {
@@ -28,8 +30,14 @@
       this.ctx = this.canvas.getContext("2d", { alpha: false });
     }
     grab(now) {
-      this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
-      this.ts = now;
+      try {
+        this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+        this.ts = now;
+        return true;
+      } catch {
+        this.blocked = true;
+        return false;
+      }
     }
   }
 
@@ -70,6 +78,10 @@
 
     start() {
       if (this.on) return;
+      if (isDrm(this.video)) {
+        this.drm = true;
+        return;
+      }
       this.on = true;
       this.written = 0;
       this.shown = -1;
@@ -163,9 +175,15 @@
         this._grow(Math.round(this.cap * 1.5));
       }
       try {
-        this.slots[this.written % this.cap].grab(now);
+        if (!this.slots[this.written % this.cap].grab(now)) {
+          this.stop();
+          this.drm = true;
+          return;
+        }
       } catch {
-        /* cross-origin: skip frame */
+        this.stop();
+        this.drm = true;
+        return;
       }
       this.written++;
       this.video.requestVideoFrameCallback(this._onCap);
@@ -279,7 +297,39 @@
     }
   }
 
+  function isDrm(v) {
+    try {
+      return !!(v.mediaKeys);
+    } catch {
+      return false;
+    }
+  }
+
+  function hostAllowed() {
+    const page = (location.hostname || "").replace(/^www\./, "").toLowerCase();
+    if (!page) return false;
+    return allowedHosts.some((h) => page === h || page.endsWith("." + h));
+  }
+
+  function disableOnThisSite() {
+    streaming = false;
+    delayMs = 0;
+    document.querySelectorAll("video").forEach((v) => {
+      const p = attached.get(v);
+      if (p) p.stop();
+    });
+    if (overlay) {
+      overlay.style.display = "none";
+      overlay.remove();
+      overlay = null;
+    }
+  }
+
   function apply(m) {
+    if (!hostAllowed()) {
+      disableOnThisSite();
+      return;
+    }
     if (!m || !m.isStreaming) {
       streaming = false;
       delayMs = 0;
@@ -293,13 +343,17 @@
     streaming = true;
     delayMs = Math.max(0, Number(m.delayMs != null ? m.delayMs : m.totalLatencyMs) || 0);
     const mode = m.realTimeMode ? "RT" : "Normal";
-    hud(`BC ${mode} +${Math.round(delayMs)}ms`);
+    const drm = [...document.querySelectorAll("video")].some(isDrm);
+    hud(drm
+      ? `BC ${mode} +${Math.round(delayMs)}ms · DRM`
+      : `BC ${mode} +${Math.round(delayMs)}ms`);
     scan();
   }
 
   function scan() {
     if (!streaming || delayMs < 15) return;
     document.querySelectorAll("video").forEach((v) => {
+      if (isDrm(v)) return;
       if (v.offsetWidth < MIN_VIDEO_PX || v.offsetHeight < MIN_VIDEO_PX) return;
       if (!v.parentElement) return;
       let p = attached.get(v);
@@ -316,14 +370,20 @@
     });
   }
 
-  chrome.storage.local.get({ showCornerHud: true }, (s) => {
+  chrome.storage.local.get({ showCornerHud: true, allowedHosts: DEFAULT_HOSTS }, (s) => {
     showCornerHud = s.showCornerHud !== false;
-    placeHud();
+    if (Array.isArray(s.allowedHosts)) allowedHosts = s.allowedHosts;
+    if (!hostAllowed()) disableOnThisSite();
+    else placeHud();
   });
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !changes.showCornerHud) return;
-    showCornerHud = changes.showCornerHud.newValue !== false;
-    placeHud();
+    if (area !== "local") return;
+    if (changes.showCornerHud)
+      showCornerHud = changes.showCornerHud.newValue !== false;
+    if (changes.allowedHosts && Array.isArray(changes.allowedHosts.newValue))
+      allowedHosts = changes.allowedHosts.newValue;
+    if (!hostAllowed()) disableOnThisSite();
+    else placeHud();
   });
 
   chrome.runtime.onMessage.addListener((msg) => {

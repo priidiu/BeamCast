@@ -29,8 +29,11 @@ public sealed class BeamService : IAsyncDisposable
 
     private ushort _seq;
     private uint _rtptime;
+    private readonly object _pipelineLock = new();
     private readonly short[] _pcmBuffer = new short[FrameSize * 2];
     private int _pcmFrames;
+    private DateTime _lastRtpUtc;
+    private bool _loggedKeepalive;
     private long _packetsSent;
     private long _bytesSent;
     private bool _paused;
@@ -134,6 +137,9 @@ public sealed class BeamService : IAsyncDisposable
             AppLog.Write($"BeamService: WASAPI buffer = {bufferMs}ms ({(RealTimeMode ? "RealTime" : "Normal")} mode)");
             _capture.PacketCaptured += OnPacketCaptured;
             await _capture.StartAsync();
+            _lastRtpUtc = DateTime.UtcNow;
+            _loggedKeepalive = false;
+            _ = Task.Run(() => KeepaliveLoopAsync(_cts.Token), CancellationToken.None);
 
             if (autoMutePc)
                 MutePc();
@@ -255,13 +261,44 @@ public sealed class BeamService : IAsyncDisposable
         }
     }
 
+    private async Task KeepaliveLoopAsync(CancellationToken ct)
+    {
+        // WiiM drops RAOP if RTP stops (YouTube pause = no WASAPI packets).
+        // Send silence so seq/rtptime/sync-84 keep moving (~8 ms/frame).
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(8, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { break; }
+
+            if (_paused || _session is null || _sender is null) continue;
+            if ((DateTime.UtcNow - _lastRtpUtc).TotalMilliseconds < 16) continue;
+
+            lock (_pipelineLock)
+            {
+                if (_paused || _sender is null) continue;
+                if ((DateTime.UtcNow - _lastRtpUtc).TotalMilliseconds < 16) continue;
+                Array.Clear(_pcmBuffer);
+                _pcmFrames = FrameSize;
+                SendAlacFrame();
+                _pcmFrames = 0;
+                if (!_loggedKeepalive)
+                {
+                    _loggedKeepalive = true;
+                    AppLog.Write("BeamService: RTP keepalive (silence) — receiver stays up while PC is quiet");
+                }
+            }
+        }
+    }
+
     private void OnPacketCaptured(AudioPacket packet)
     {
         if (_cts is null || _cts.Token.IsCancellationRequested || _paused) return;
 
         try
         {
-            // WASAPI: float32 interleaved → FormatConverter → int16 stereo 44.1k
             var floats = new float[packet.Data.Length / 4];
             var span = packet.Data.Span;
             for (int i = 0; i < floats.Length; i++)
@@ -270,20 +307,22 @@ public sealed class BeamService : IAsyncDisposable
             var converted = FormatConverter.ConvertToPcm16Stereo(
                 floats, packet.Channels, packet.SampleRate, SampleRate, rng: null);
 
-            // Akumuluj do ramki ALAC
-            int framesIn = converted.Length / 2;
-            int src = 0;
-            while (src < framesIn)
+            lock (_pipelineLock)
             {
-                int take = Math.Min(FrameSize - _pcmFrames, framesIn - src);
-                Array.Copy(converted, src * 2, _pcmBuffer, _pcmFrames * 2, take * 2);
-                _pcmFrames += take;
-                src += take;
-
-                if (_pcmFrames == FrameSize)
+                int framesIn = converted.Length / 2;
+                int src = 0;
+                while (src < framesIn)
                 {
-                    SendAlacFrame();
-                    _pcmFrames = 0;
+                    int take = Math.Min(FrameSize - _pcmFrames, framesIn - src);
+                    Array.Copy(converted, src * 2, _pcmBuffer, _pcmFrames * 2, take * 2);
+                    _pcmFrames += take;
+                    src += take;
+
+                    if (_pcmFrames == FrameSize)
+                    {
+                        SendAlacFrame();
+                        _pcmFrames = 0;
+                    }
                 }
             }
         }
@@ -310,6 +349,9 @@ public sealed class BeamService : IAsyncDisposable
         _rtptime += FrameSize;
         _packetsSent++;
         _bytesSent += n;
+        _lastRtpUtc = DateTime.UtcNow;
+        if (_packetsSent % 250 == 0)
+            _loggedKeepalive = false;
 
         // Sync 84 co ~1 s
         if (_packetsSent % 125 == 1)

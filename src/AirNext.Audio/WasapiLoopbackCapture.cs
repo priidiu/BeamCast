@@ -179,12 +179,15 @@ public sealed class WasapiLoopbackCapture : IAudioCaptureSource
                 return;
             }
 
-            if (frames > 0 && dataPtr != null && (flags & (uint)_AUDCLNT_BUFFERFLAGS.AUDCLNT_BUFFERFLAGS_SILENT) == 0)
+            if (frames > 0)
             {
                 int bytesPerFrame = MixFormat.BytesPerFrame;
                 int byteCount = (int)frames * bytesPerFrame;
                 var data = new byte[byteCount];
-                Marshal.Copy((nint)dataPtr, data, 0, byteCount);
+                bool silent = dataPtr == null
+                    || (flags & (uint)_AUDCLNT_BUFFERFLAGS.AUDCLNT_BUFFERFLAGS_SILENT) != 0;
+                if (!silent)
+                    Marshal.Copy((nint)dataPtr, data, 0, byteCount);
 
                 PacketCaptured?.Invoke(new AudioPacket(data, (long)qpcPos, MixFormat.SampleRate, MixFormat.BitDepth, MixFormat.Channels));
             }
